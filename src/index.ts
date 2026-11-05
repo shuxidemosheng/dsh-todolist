@@ -246,9 +246,10 @@ export function apply(ctx: Context, config: Config | undefined): void {
   //   - 其余事件   → 原样返回同一个 state 引用
   // stateVersion 保持 2：本插件的 schema 是官方 schema 的超集（priority 可选），
   // 官方写出的旧 checkpoint 在这里照样能通过校验，双向兼容无需升版。
-  // 注册失败（例如宿主的官方插件把同一个 key 注册在不同的 stateVersion 上：
-  // 投影注册表对此直接抛错）不得连带拖死下面的工具注册——工具才是核心能力，
-  // 投影只影响浮窗的数据来源。记日志后继续，浮窗退化为读取已注册的那份定义。
+  // 注册失败（例如宿主的官方插件把同一个 key 注册在不同的 stateVersion 上，
+  // 或 0.2.2-rc.1 起 `wire.summary` 不一致：投影注册表对此直接抛错）
+  // 不得连带拖死下面的工具注册——工具才是核心能力，投影只影响浮窗的数据来源。
+  // 记日志后继续，浮窗退化为读取已注册的那份定义。
   try {
     ctx.sessionProjections.register<'todos', TodoItem[] | null>({
       key: 'todos',
@@ -259,7 +260,26 @@ export function apply(ctx: Context, config: Config | undefined): void {
         if (event.type === 'turn/start') return null
         return state
       },
-      wire: { viewSchema: todosProjectionSchema, view: state => state },
+      // 0.2.2-rc.1 起，宿主把 `wire.summary` 归一化为 `wire.summary !== false`
+      // （不写就是 true），并且要求共享同一个 key 的多个注册方，其
+      // `stateVersion` 与 `summary` 必须完全一致，否则 register() 直接抛错。
+      // 官方 tool-todo 现在显式写 `summary: false`（todo 列表不进会话摘要），
+      // 这里必须对齐：否则本插件先注册成功（true），官方插件随后在 agent preset
+      // 里注册 `todos` 时失败，preset 被判为 agent-preset/invalid，所有会话都建不了。
+      //
+      // 用 Object.assign 而不是对象字面量，是因为本地 SDK（0.2.1-rc.2）的
+      // `wire` 类型还没有 `summary` 字段：字面量里多写会触发 TS2353；
+      // Object.assign 返回交叉类型，结构赋值不做多余属性检查，
+      // 而运行时对象会真实带上 `summary: false`。
+      // `view` 的参数也要显式标注类型：这里脱离了 register() 的上下文类型推断，
+      // 省略会在 strict 模式下变成隐式 any。
+      wire: Object.assign(
+        {
+          viewSchema: todosProjectionSchema,
+          view: (state: TodoItem[] | null) => state,
+        },
+        { summary: false },
+      ),
       stateVersion: 2,
     })
   } catch (error) {

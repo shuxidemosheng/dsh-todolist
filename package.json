@@ -18,7 +18,7 @@
     "type": "git",
     "url": "git+https://github.com/shuxidemosheng/dsh-tool-todo-plus.git"
   },
-  "version": "0.7.4",
+  "version": "0.7.5",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
