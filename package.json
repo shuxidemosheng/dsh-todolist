@@ -1,5 +1,5 @@
 {
-  "name": "dsh-todolist",
+  "name": "@shuxidemosheng/dsh-todolist",
   "description": "todo_write tool with priority tags, markdown checklist rendering and a floating task panel — drop-in enhanced fork of @deepseek-ai/dsh-tool-todo",
   "keywords": [
     "deepseek",
@@ -56,7 +56,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && esbuild src/index.ts --bundle --format=esm --platform=node --target=node24 --outfile=lib/index.js --legal-comments=none && node scripts/disable-eval.mjs && esbuild src/client.tsx --bundle --format=cjs --platform=browser --target=chrome120 --outfile=lib/client.js --external:react --external:react/jsx-runtime --external:react-dom --legal-comments=none --banner:js=\"window.__ModuleLoader__.load({ id: \\\"dsh-todolist\\\", factory: (require) => { var module = { exports: {} }; var exports = module.exports;\" --footer:js=\"return module.exports; } });\""
+    "build": "tsc -p tsconfig.json && esbuild src/index.ts --bundle --format=esm --platform=node --target=node24 --outfile=lib/index.js --legal-comments=none && node scripts/disable-eval.mjs && esbuild src/client.tsx --bundle --format=cjs --platform=browser --target=chrome120 --outfile=lib/client.js --external:react --external:react/jsx-runtime --external:react-dom --legal-comments=none --banner:js=\"window.__ModuleLoader__.load({ id: \\\"@shuxidemosheng/dsh-todolist\\\", factory: (require) => { var module = { exports: {} }; var exports = module.exports;\" --footer:js=\"return module.exports; } });\""
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.4",

@@ -11,7 +11,7 @@
 # 不会让 entry 激活失败。
 - insert:
     - id: todolist
-      name: dsh-todolist
+      name: '@shuxidemosheng/dsh-todolist'
       config:
         allowParallelInProgress: false
         toolName: todo_write_plus
