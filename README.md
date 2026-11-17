@@ -1,12 +1,12 @@
 <div align="center">
 
-# dsh-tool-todo-plus
+# dsh-todolist
 
 **DeepSeek Harness 任务清单插件 —— 官方 [`todo_write`](https://github.com/deepseek-ai/deepseek-harness) 的增强 fork**
 
 优先级标签 · 完整清单渲染 · 会话内浮动任务面板
 
-[![npm version](https://img.shields.io/npm/v/dsh-tool-todo-plus)](https://www.npmjs.com/package/dsh-tool-todo-plus)
+[![npm version](https://img.shields.io/npm/v/dsh-todolist)](https://www.npmjs.com/package/dsh-todolist)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%E2%89%A5%2024-339933)](https://nodejs.org)
 
@@ -111,21 +111,21 @@
 
 ### 方式一：npm 包名安装（最简）
 
-包已发布到 npm：[`dsh-tool-todo-plus`](https://www.npmjs.com/package/dsh-tool-todo-plus)——安装时只需包名，无需 git 地址，且可指定版本。
+包已发布到 npm：[`dsh-todolist`](https://www.npmjs.com/package/dsh-todolist)——安装时只需包名，无需 git 地址，且可指定版本。
 
 CLI profile（有 `dsh` 命令的环境）：
 
 ```bash
-dsh plugin --profile <你的profile名> add dsh-tool-todo-plus
+dsh plugin --profile <你的profile名> add dsh-todolist
 ```
 
 桌面端（Git Bash，先完全退出应用，含系统托盘）：
 
 ```bash
-ELECTRON_RUN_AS_NODE=1 "/d/DeepSeek Harness/DeepSeek Harness.exe" --expose-internals "D:/DeepSeek Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" plugin --profile desktop add dsh-tool-todo-plus
+ELECTRON_RUN_AS_NODE=1 "/d/DeepSeek Harness/DeepSeek Harness.exe" --expose-internals "D:/DeepSeek Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" plugin --profile desktop add dsh-todolist
 ```
 
-安装后验证版本：`grep '"version"' ~/.dsh/profiles/desktop/node_modules/dsh-tool-todo-plus/package.json`
+安装后验证版本：`grep '"version"' ~/.dsh/profiles/desktop/node_modules/dsh-todolist/package.json`
 
 > 注意：包名安装走 npm registry（国内镜像站通常已同步，偶有几分钟延迟）；新版本发布后的数天冷却期内，裸包名会解析到旧版——请带版本号安装（见[常见问题](#常见问题)）；急用最新版也可走[方式二](#install-git)。
 
@@ -136,10 +136,10 @@ ELECTRON_RUN_AS_NODE=1 "/d/DeepSeek Harness/DeepSeek Harness.exe" --expose-inter
 Git Bash（桌面端；先完全退出应用）：
 
 ```bash
-ELECTRON_RUN_AS_NODE=1 "/d/DeepSeek Harness/DeepSeek Harness.exe" --expose-internals "D:/DeepSeek Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" plugin --profile desktop add https://github.com/shuxidemosheng/dsh-tool-todo-plus.git
+ELECTRON_RUN_AS_NODE=1 "/d/DeepSeek Harness/DeepSeek Harness.exe" --expose-internals "D:/DeepSeek Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" plugin --profile desktop add https://github.com/shuxidemosheng/dsh-todolist.git
 ```
 
-CLI profile：`dsh plugin --profile <你的profile名> add https://github.com/shuxidemosheng/dsh-tool-todo-plus.git`
+CLI profile：`dsh plugin --profile <你的profile名> add https://github.com/shuxidemosheng/dsh-todolist.git`
 
 <a id="install-desktop-ui"></a>
 
@@ -203,10 +203,10 @@ dsh **0.2.1-rc.2 起**会在启动时检查插件的兼容性声明：优先读 
 
 dsh 内置 `minimumReleaseAge` 供应链策略：刚发布的版本要经过数天冷却期才会被"裸包名"解析安装（防供应链投毒），冷却期内会装到上一个"足够老"的版本，而插件页卡片显示的仍是 registry 最新版号。急着安装 / 升级请带版本号：
 
-- 插件页：粘贴 `dsh-tool-todo-plus@<版本号>`（如 `dsh-tool-todo-plus@0.7.2`）
-- CLI：`dsh plugin --profile <profile名> add dsh-tool-todo-plus@<版本号>`
+- 插件页：粘贴 `dsh-todolist@<版本号>`（如 `dsh-todolist@0.7.2`）
+- CLI：`dsh plugin --profile <profile名> add dsh-todolist@<版本号>`
 
-装完后**完全重启客户端**生效；可在 `~/.dsh/profiles/<profile>/node_modules/dsh-tool-todo-plus/package.json` 里核对 `"version"`。
+装完后**完全重启客户端**生效；可在 `~/.dsh/profiles/<profile>/node_modules/dsh-todolist/package.json` 里核对 `"version"`。
 
 **面板停在某一步「进行中」不动，但任务其实已经做完了？**
 

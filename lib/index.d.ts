@@ -1,5 +1,5 @@
 /**
- * dsh-tool-todo-plus：todo_write 工具的增强 fork（基于 @deepseek-ai/dsh-tool-todo）。
+ * dsh-todolist：todo_write 工具的增强 fork（基于 @deepseek-ai/dsh-tool-todo）。
  *
  * 相对官方版的增强：
  *  1. TodoItem 增加可选 `priority`（high | medium | low）
@@ -8,11 +8,11 @@
  *
  * 持久化事件类型、投影键、折叠语义、并行策略语义与官方完全一致，日志可互相读取。
  *
- * @module dsh-tool-todo-plus
+ * @module dsh-todolist
  */
 import type { Context } from '@deepseek-ai/cordis';
 export type * from './types.js';
-export declare const name = "tool-todo-plus";
+export declare const name = "todolist";
 export declare const inject: string[];
 /** 插件配置（对应 patch 行里的 config 字段）。 */
 export interface Config {

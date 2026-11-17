@@ -1,4 +1,4 @@
-# dsh-tool-todo-plus 的 bundle patch：挂载增强版任务清单工具。
+# dsh-todolist 的 bundle patch：挂载增强版任务清单工具。
 #
 # 默认与官方 todo_write 共存（toolName: 'todo_write_plus'，零冲突）：
 # 桌面端等使用 agent preset 的部署里，preset 自己声明的官方 tool-todo 行
@@ -10,8 +10,8 @@
 # 名字万一仍被占用（例如装了两份本插件），本插件会记日志后优雅让位，
 # 不会让 entry 激活失败。
 - insert:
-    - id: tool-todo-plus
-      name: dsh-tool-todo-plus
+    - id: todolist
+      name: dsh-todolist
       config:
         allowParallelInProgress: false
         toolName: todo_write_plus

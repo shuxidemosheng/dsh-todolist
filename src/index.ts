@@ -1,5 +1,5 @@
 /**
- * dsh-tool-todo-plus：todo_write 工具的增强 fork（基于 @deepseek-ai/dsh-tool-todo）。
+ * dsh-todolist：todo_write 工具的增强 fork（基于 @deepseek-ai/dsh-tool-todo）。
  *
  * 相对官方版的增强：
  *  1. TodoItem 增加可选 `priority`（high | medium | low）
@@ -8,7 +8,7 @@
  *
  * 持久化事件类型、投影键、折叠语义、并行策略语义与官方完全一致，日志可互相读取。
  *
- * @module dsh-tool-todo-plus
+ * @module dsh-todolist
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -25,7 +25,7 @@ export type * from './types.js'
 // 函数式 Cordis 插件三件套：name / inject / apply。
 // 注意：绝不能加 export default——Loader 的 unwrapExports 会折叠模块并丢弃
 // inject（官方 postmortem 0001）。
-export const name = 'tool-todo-plus'
+export const name = 'todolist'
 // 声明依赖的服务：tools（注册模型工具）、sessionProjections（注册会话投影）。
 export const inject = ['tools', 'sessionProjections']
 
@@ -62,17 +62,17 @@ function resolveConfig(config: Config | undefined): { allowParallelInProgress: b
   const unknown = Object.keys(config).filter(key => key !== 'allowParallelInProgress' && key !== 'toolName')
   if (unknown.length > 0) {
     throw new Error(
-      `dsh-tool-todo-plus config has unknown key(s) ${unknown.join(', ')}`
+      `dsh-todolist config has unknown key(s) ${unknown.join(', ')}`
       + ' — config is { allowParallelInProgress?, toolName? }',
     )
   }
   const allow = config.allowParallelInProgress
   if (allow !== undefined && typeof allow !== 'boolean') {
-    throw new Error('dsh-tool-todo-plus config: `allowParallelInProgress` must be a boolean when present')
+    throw new Error('dsh-todolist config: `allowParallelInProgress` must be a boolean when present')
   }
   const toolName = config.toolName
   if (toolName !== undefined && (typeof toolName !== 'string' || toolName.trim() === '')) {
-    throw new Error('dsh-tool-todo-plus config: `toolName` must be a non-empty string when present')
+    throw new Error('dsh-todolist config: `toolName` must be a non-empty string when present')
   }
   return { allowParallelInProgress: allow ?? false, toolName: toolName?.trim() ?? 'todo_write' }
 }
@@ -233,7 +233,7 @@ export function apply(ctx: Context, config: Config | undefined): void {
   // 激活失败都会让会话创建失败，所以输家必须优雅退出而不是抛错。
   if (ctx.tools.get(toolName) !== undefined) {
     ctx.logger.warn(
-      `dsh-tool-todo-plus: tool "${toolName}" is already registered by another plugin`
+      `dsh-todolist: tool "${toolName}" is already registered by another plugin`
       + ' — standing by (set `toolName` in this bundle row\'s config to coexist)',
     )
     return
@@ -284,7 +284,7 @@ export function apply(ctx: Context, config: Config | undefined): void {
     })
   } catch (error) {
     ctx.logger.error(
-      'dsh-tool-todo-plus: failed to register the `todos` session projection'
+      'dsh-todolist: failed to register the `todos` session projection'
       + ` — ${error instanceof Error ? error.message : String(error)};`
       + ' the floating panel will fall back to the projection definition already registered',
     )
@@ -400,7 +400,7 @@ export function apply(ctx: Context, config: Config | undefined): void {
     ctx.tools.register(todoTool)
   } catch (error) {
     ctx.logger.error(
-      `dsh-tool-todo-plus: failed to register tool "${toolName}"`
+      `dsh-todolist: failed to register tool "${toolName}"`
       + ` — ${error instanceof Error ? error.message : String(error)}`,
     )
   }

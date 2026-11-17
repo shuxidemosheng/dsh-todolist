@@ -1,5 +1,5 @@
 /**
- * dsh-tool-todo-plus 客户端半：自绘浮动"任务清单"卡片（ZCode 计划面板风格）。
+ * dsh-todolist 客户端半：自绘浮动"任务清单"卡片（ZCode 计划面板风格）。
  *
  * 架构（刻意不使用右侧栏 tab 系统——openTab 会强制展开整个右侧栏，无法只开浮窗）：
  *
@@ -19,7 +19,7 @@
  * 构建约束：产物是懒 CJS 工厂（平台模块表解析 react/react-dom），两者必须
  * external；其余一律 inline styles，避免任何平台表之外的模块请求。
  *
- * @module dsh-tool-todo-plus/client
+ * @module dsh-todolist/client
  */
 import type { ReactNode } from 'react';
 declare module 'react-dom' {
