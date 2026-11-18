@@ -41,6 +41,14 @@ interface ClientCtx {
     logger: {
         warn(...args: unknown[]): void;
     };
+    /** 可选：全局 sessions 服务。老版本宿主可能没有，缺失时子代理区块静默关闭。 */
+    sessions?: {
+        list: {
+            getSnapshot(): any;
+            subscribe(listener: () => void): () => void;
+        };
+        refreshProjections(sessionId: string | number): Promise<unknown> | unknown;
+    };
 }
 /**
  * 客户端半插件入口。由客户端模块系统在物化时调用（懒 CJS 工厂）。

@@ -44,6 +44,11 @@ interface ClientCtx {
     register(def: { name: string; id?: string; key?: string; order?: number }, component: unknown): () => void
   }
   logger: { warn(...args: unknown[]): void }
+  /** 可选：全局 sessions 服务。老版本宿主可能没有，缺失时子代理区块静默关闭。 */
+  sessions?: {
+    list: { getSnapshot(): any; subscribe(listener: () => void): () => void }
+    refreshProjections(sessionId: string | number): Promise<unknown> | unknown
+  }
 }
 
 // —— 桥组件在 conversation.input.dock 里的注册条目 id ——
@@ -52,6 +57,94 @@ const BRIDGE_ID = 'todo-plus-bridge'
 const HEADER_ACTION_ID = 'todo-plus-header-action'
 // —— 桥组件渲染的零尺寸锚点元素 id（浮窗水平定位参照）——
 const ANCHOR_ID = 'dsh-todo-plus-anchor'
+
+/**
+ * 子代理条目的展示视图（从宿主 sessions 投影派生，模块内部使用）。
+ *
+ * 数据源是父会话的 `subagentCatalog` 投影与子会话自己的投影值；插件不自己
+ * 维护子代理生命周期，也不发任何 RPC。字段全部是"读模型"，只用于渲染。
+ */
+interface SubagentView {
+  /** 子会话 id，作为 React key 与刷新投影的句柄。 */
+  id: string
+  /** 展示名：优先 title，其次 label/name，最后回退短 id。 */
+  label: string
+  /** 是否正在运行：子会话的 subagentTiming.active 存在即视为本轮未结束。 */
+  running: boolean
+  /** 已运行时长（毫秒）：settledMs + 当前回合已进行时间。 */
+  durationMs: number
+  /** 子代理模式（one-shot / continuable / external / unknown），用于图标与提示。 */
+  mode: string
+}
+
+// 子代理展示条目：只读快照源，与 todos 一样在 emit() 前后成对更新。
+let subagents: readonly SubagentView[] = []
+// 当前会话 id：由 TodoBridge 的 sessionId prop 写入，订阅回调据此过滤投影。
+let activeSessionId: string | number | undefined
+// sessions 服务是否可用（老版本宿主可能没有该服务）：不可用则整块功能静默关闭。
+let sessionsService: {
+  list: { getSnapshot(): any; subscribe(listener: () => void): () => void }
+  refreshProjections(sessionId: string | number): Promise<unknown> | unknown
+} | null = null
+
+/**
+ * 把宿主投影派生为展示视图。
+ *
+ * subagentCatalog 给出父会话的直接子代理列表（id / mode / label / name）；
+ * 每个子会话的投影值里 subagentTiming.active 表示当前回合尚未 turn/end，
+ * settledMs 是已结束回合的累计耗时。external 模式没有本地 session，
+ * 只能显示名称，running=false、duration=0。
+ */
+function deriveSubagents(snapshot: any, sessionId: string | number | undefined): readonly SubagentView[] {
+  if (!snapshot || sessionId === undefined) return []
+  const values = snapshot?.projectionsBySession?.[String(sessionId)]?.values
+  const catalog: readonly any[] = values?.subagentCatalog ?? []
+  if (catalog.length === 0) return []
+  const now = Date.now()
+  return catalog.map((entry: any): SubagentView => {
+    const id = String(entry?.id ?? '')
+    const child = snapshot?.projectionsBySession?.[id]?.values
+    const timing = child?.subagentTiming
+    const active = timing?.active
+    const running = active !== undefined && active !== null
+      && typeof active.since === 'number'
+    const settled = typeof timing?.settledMs === 'number' ? timing.settledMs : 0
+    const durationMs = running
+      ? settled + Math.max(0, now - Number(active.since))
+      : settled
+    const label = (typeof child?.title === 'string' && child.title !== '')
+      ? child.title
+      : (typeof entry?.label === 'string' && entry.label !== '')
+        ? entry.label
+        : (typeof entry?.name === 'string' && entry.name !== '')
+          ? entry.name
+          : id.slice(0, 8)
+    return { id, label, running, durationMs, mode: String(entry?.mode ?? 'unknown') }
+  })
+}
+
+function setSubagents(next: readonly SubagentView[]): void {
+  const changed = next.length !== subagents.length
+    || next.some((s, i) => {
+      const p = subagents[i]
+      return p === undefined || s.id !== p.id || s.label !== p.label
+        || s.running !== p.running || s.durationMs !== p.durationMs || s.mode !== p.mode
+    })
+  if (!changed) return
+  subagents = next
+  emit()
+}
+
+/** 格式化时长：秒级精度足够，超过 1 小时显示 h:mm。 */
+function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}`
+  if (minutes > 0) return `${minutes}m${String(seconds).padStart(2, '0')}s`
+  return `${seconds}s`
+}
 
 // —— 模块级共享状态：清单 + 面板开关 + 形态 + 会话视图在位标记 ——
 // 纪律：这些变量是 useSyncExternalStore 的快照源，只在 emit() 前后成对更新；
@@ -147,6 +240,12 @@ function resetSessionScope(): void {
   listStale = false
   if (todos.length > 0) {
     todos = []
+    emit()
+  }
+  // 子代理条目同样按会话隔离，避免上一会话的子代理串显到新会话
+  activeSessionId = undefined
+  if (subagents.length > 0) {
+    subagents = []
     emit()
   }
 }
@@ -281,6 +380,12 @@ function TodoBridge(props: {
     // 会话边界：挂载和 sessionId 变化都会重置注水窗口，并清掉跨会话的残留显示
     boundaryAt.current = performance.now()
     resetSessionScope()
+    activeSessionId = props.sessionId
+    // 子代理目录投影默认可能未激活：与官方 dsh-client-ui-subagent 的
+    // prepareCatalog 同样显式刷新一次，之后由 sessions.list 订阅跟随增量。
+    if (props.sessionId !== undefined && sessionsService !== null) {
+      try { void sessionsService.refreshProjections(props.sessionId) } catch { /* 投影刷新失败不影响清单主体 */ }
+    }
   }, [props.sessionId])
   useEffect(() => {
     conversationActive = true
@@ -332,6 +437,9 @@ function TodoCard(props: { panelPos: { x: number; y: number } }): ReactElement {
   const stale = useSyncExternalStore(subscribe, () => listStale, () => listStale)
   // 当前动作（A）：模型此刻在执行的工具，两次清单写入之间的实时反馈
   const action = useSyncExternalStore(subscribe, () => currentAction, () => currentAction)
+  // 子代理条目：必须配对订阅——读到 store 却不订阅是历史上三次 bug 的根因。
+  const subs = useSyncExternalStore(subscribe, () => subagents, () => subagents)
+  const [subagentsExpanded, setSubagentsExpanded] = useState(false)
   const completed = items.filter(t => t.status === 'completed').length
   const inProgress = items.filter(t => t.status === 'in_progress').length
 
@@ -362,6 +470,49 @@ function TodoCard(props: { panelPos: { x: number; y: number } }): ReactElement {
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, opacity: 0.6, minHeight: 16 }}>
       <span aria-hidden>⚙</span>
       <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{action}</span>
+    </div>
+  ) : null
+
+  // 子代理区块：父会话有直接子代理时显示。运行数优先展示，点标题展开/收起明细。
+  // 折叠态只占一行，避免没有子代理的普通会话出现任何额外视觉噪音。
+  const runningSubs = subs.filter(s => s.running).length
+  const subagentLine = subs.length > 0 ? (
+    <div style={{ marginTop: actionLine ? 6 : 0, fontSize: 11 }}>
+      <button
+        type="button"
+        onClick={() => setSubagentsExpanded(!subagentsExpanded)}
+        title="展开/收起子代理状态"
+        aria-label="展开或收起子代理状态"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+          padding: 0, background: 'transparent', border: 'none', color: 'inherit',
+          fontSize: 11, cursor: 'pointer', opacity: 0.7, textAlign: 'left',
+        }}>
+        <span aria-hidden>{subagentsExpanded ? '▾' : '▸'}</span>
+        <span>子代理</span>
+        <span style={{ opacity: 0.85 }}>
+          {runningSubs > 0 ? `${runningSubs} 运行中` : `${subs.length} 个`}
+        </span>
+      </button>
+      {subagentsExpanded && (
+        <div style={{ display: 'grid', gap: 4, marginTop: 5, paddingLeft: 4 }}>
+          {subs.map(s => (
+            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }} title={`${s.mode} · ${s.id}`}>
+              <span aria-hidden style={{
+                flex: 'none', width: 6, height: 6, borderRadius: '50%',
+                background: s.running ? '#58a6ff' : '#8b949e',
+                boxShadow: s.running ? '0 0 0 2px rgba(88,166,255,0.2)' : 'none',
+              }} />
+              <span style={{
+                minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+              }}>{s.label}</span>
+              <span style={{ flex: 'none', opacity: 0.55, fontVariantNumeric: 'tabular-nums' }}>
+                {s.running ? formatDuration(s.durationMs) : s.mode}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   ) : null
 
@@ -407,7 +558,8 @@ function TodoCard(props: { panelPos: { x: number; y: number } }): ReactElement {
       <div style={{ padding: '10px 14px 12px' }}>
         {header}
         {actionLine}
-        <div style={{ fontSize: 12, opacity: 0.6, marginTop: actionLine ? 6 : 0 }}>
+        {subagentLine}
+        <div style={{ fontSize: 12, opacity: 0.6, marginTop: actionLine || subagentLine ? 6 : 0 }}>
           暂无任务。模型调用 todo_write_plus 后，清单会实时出现在这里。
         </div>
       </div>
@@ -421,6 +573,7 @@ function TodoCard(props: { panelPos: { x: number; y: number } }): ReactElement {
       <div style={{ padding: '8px 10px' }}>
         {header}
         {actionLine}
+        {subagentLine}
         <button
           type="button"
           onClick={() => setCollapsed(false)}
@@ -452,6 +605,7 @@ function TodoCard(props: { panelPos: { x: number; y: number } }): ReactElement {
     <div style={{ padding: '10px 14px 14px', fontFamily: 'inherit' }}>
       {header}
       {actionLine}
+      {subagentLine}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8, opacity: stale ? 0.6 : undefined }}>
         {items.map((todo, index) => (
           // key 带序号：模型有时会提交两条文字完全相同的待办（服务端会加后缀去重，
@@ -585,6 +739,22 @@ function ensureOverlayRoot(): void {
 export function apply(ctx: ClientCtx): void {
   // 独立浮窗的 React 根（document 就绪后挂载）
   ensureOverlayRoot()
+
+  // 子代理状态：订阅全局 sessions.list 投影快照（不依赖槽位透传新 props）。
+  // 服务缺失或抛错时静默关闭该区块，清单主体完全不受影响。
+  sessionsService = ctx.sessions ?? null
+  if (sessionsService !== null) {
+    const refresh = (): void => {
+      try { setSubagents(deriveSubagents(sessionsService!.list.getSnapshot(), activeSessionId)) }
+      catch { /* 投影形状与预期不符时保持上一帧，不打断清单 */ }
+    }
+    try { sessionsService.list.subscribe(refresh) } catch { sessionsService = null }
+    refresh()
+    // 运行中条目的时长要每秒跳动：重新派生一次即可，变化才 emit。
+    window.setInterval(() => {
+      if (subagents.some(s => s.running)) refresh()
+    }, 1000)
+  }
 
   // 数据桥：dock 槽位（有 useProjection）订阅投影，喂给模块级 store
   ctx.slots.inject('conversation.input.dock', () => {
